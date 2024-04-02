@@ -29,6 +29,8 @@ const (
 )
 
 var (
+	version           string
+	printVersion      bool
 	st                = CFSpeedTest{}
 	speedTestTimeout  int
 	ipFile            string
@@ -58,6 +60,13 @@ func init() {
 	flag.Float64Var(&minSpeed, "mins", 1, "最低速度")
 	flag.BoolVar(&enableTLS, "tls", true, "是否启用TLS")
 	flag.BoolVar(&shuffle, "s", false, "是否打乱顺序测速")
+	flag.BoolVar(&printVersion, "v", false, "打印程序版本")
+	flag.Parse()
+
+	if printVersion {
+		println(version)
+		os.Exit(0)
+	}
 }
 
 type IpPair struct {
@@ -94,6 +103,38 @@ type Location struct {
 }
 
 type CFSpeedTest struct {
+}
+
+func (st *CFSpeedTest) Run() {
+	startTime := time.Now()
+	locationMap := st.GetLocationMap()
+	if locationMap == nil {
+		return
+	}
+
+	ips, err := st.readIPs(ipFile)
+	if err != nil {
+		fmt.Printf("无法从文件中读取 IP: %v\n", err)
+		return
+	}
+
+	if shuffle {
+		// 随机顺序
+		rand.Shuffle(len(ips), func(i, j int) { ips[i], ips[j] = ips[j], ips[i] })
+	}
+
+	resultChan := st.TestDelay(ips, locationMap)
+	if len(resultChan) == 0 {
+		// 清除输出内容
+		fmt.Print("\033[2J")
+		fmt.Println("没有发现有效的IP")
+		return
+	}
+	results := st.TestDownload(resultChan)
+	st.Output(results)
+	// 清除输出内容
+	fmt.Print("\033[2J")
+	fmt.Printf("成功将结果写入文件 %s，耗时 %d秒\n", outFile, time.Since(startTime)/time.Second)
 }
 
 func (st *CFSpeedTest) GetLocationMap() map[string]Location {
@@ -391,39 +432,6 @@ func (cf *CFSpeedTest) Output(results []SpeedTestResult) {
 	}
 
 	writer.Flush()
-}
-
-func (st *CFSpeedTest) Run() {
-	flag.Parse()
-	startTime := time.Now()
-	locationMap := st.GetLocationMap()
-	if locationMap == nil {
-		return
-	}
-
-	ips, err := st.readIPs(ipFile)
-	if err != nil {
-		fmt.Printf("无法从文件中读取 IP: %v\n", err)
-		return
-	}
-
-	if shuffle {
-		// 随机顺序
-		rand.Shuffle(len(ips), func(i, j int) { ips[i], ips[j] = ips[j], ips[i] })
-	}
-
-	resultChan := st.TestDelay(ips, locationMap)
-	if len(resultChan) == 0 {
-		// 清除输出内容
-		fmt.Print("\033[2J")
-		fmt.Println("没有发现有效的IP")
-		return
-	}
-	results := st.TestDownload(resultChan)
-	st.Output(results)
-	// 清除输出内容
-	fmt.Print("\033[2J")
-	fmt.Printf("成功将结果写入文件 %s，耗时 %d秒\n", outFile, time.Since(startTime)/time.Second)
 }
 
 func main() {
