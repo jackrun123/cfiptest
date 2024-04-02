@@ -6,6 +6,7 @@ Cloudflare IP 测速器是一个使用 Golang 编写的小工具，用于测试�
 # 参数说明
 可以使用 cfiptest -h 获取使用说明
 ```
+cfiptest -h
 Usage of cfiptest:
   -dt int
     	并发请求最大协程数 (default 100)
@@ -29,7 +30,8 @@ Usage of cfiptest:
   -tls
     	是否启用TLS (default true)
   -url string
-    	测速文件地址 (default "speed.cloudflare.com/__down?bytes=500000000")
+    	测速文件地址 (default "speed.cloudflare.com/__down?bytes=100000000")
+  -v	打印程序版本
 ```
 
 # 运行
@@ -38,6 +40,7 @@ Usage of cfiptest:
 ip.txt例子
 ```
 127.0.0.1:2053
+127.0.0.1/24:2053
 127.0.0.2
 ```
 
