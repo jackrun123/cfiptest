@@ -7,31 +7,41 @@ Cloudflare IP 测速器是一个使用 Golang 编写的小工具，用于测试�
 可以使用 cfiptest -h 获取使用说明
 ```
 cfiptest -h
-Usage of cfiptest:
+例子：cfiptest -f ./ip.txt -url speed.cloudflare.com/__down?bytes=100000000
+参数：
+  -delay_url string
+        延迟测试地址，要求是使用cloudflare的地址 (default "www.visa.com.hk/cdn-cgi/trace")
   -dt int
-    	并发请求最大协程数 (default 100)
+        并发请求最大协程数 (default 100)
   -f string
-    	IP地址文件名称，格式1.0.0.127:443 (default "ip.txt")
+        IP地址文件名称，格式1.0.0.127,443 (default "ip.txt")
+  -h    帮助
   -maxdc int
-    	延迟测试，最多测试多少个IP (default 1000)
+        延迟测试，最多测试多少个IP (default 1000)
   -maxsc int
-    	速度测试，最多测试多少个IP (default 10)
+        速度测试，最多测试多少个IP (default 10)
   -mins float
-    	最低速度 (default 1)
+        最低速度 (default 1)
   -o string
-    	输出文件名称 (default "ip.csv")
+        输出文件名称 (default "ip.csv")
   -p int
-    	默认端口 (default 443)
-  -s	是否打乱顺序测速
+        默认端口 (default 443)
+  -s    是否打乱顺序测速
   -st int
-    	下载测速协程数量,设为0禁用测速 (default 1)
+        下载测速协程数量,设为0禁用测速 (default 1)
   -sto int
-    	速度测试超时时间 (default 5)
+        速度测试超时时间 (default 5)
   -tls
-    	是否启用TLS (default true)
+        是否启用TLS (default true)
   -url string
-    	测速文件地址 (default "speed.cloudflare.com/__down?bytes=100000000")
-  -v	打印程序版本
+        测速文件地址 (default "speed.cloudflare.com/__down?bytes=100000000")
+  -v    打印程序版本
+
+cfiptest asn 用于根据asn获取ip段
+例子：cfiptest asn -as 13335
+  -as string
+        ASN号码，例如13335
+
 ```
 
 # 运行

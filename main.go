@@ -21,7 +21,7 @@ var (
 
 func init() {
 	rand.Seed(time.Now().Unix())
-	flag.StringVar(&st.IpFile, "f", "ip.txt", "IP地址文件名称，格式1.0.0.127:443")
+	flag.StringVar(&st.IpFile, "f", "ip.txt", "IP地址文件名称，格式1.0.0.127,443")
 	flag.StringVar(&st.OutFile, "o", "ip.csv", "输出文件名称")
 	flag.IntVar(&st.DefaultPort, "p", 443, "默认端口")
 	flag.IntVar(&st.MaxThread, "dt", 100, "并发请求最大协程数")
@@ -42,18 +42,17 @@ func init() {
 }
 
 func main() {
-	switch os.Args[1] {
+	cmd := ""
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+	}
+
+	switch cmd {
 	case "asn":
 		asnCmd.Parse(os.Args[2:])
 		asn.Run()
 	default:
-		flag.Parse()
-		if printVersion {
-			println(version)
-			os.Exit(0)
-		}
-
-		if isShowHelp {
+		flag.Usage = func() {
 			fmt.Println("使用方法：")
 			fmt.Println("例子：cfiptest -f ./ip.txt -url speed.cloudflare.com/__down?bytes=100000000")
 			fmt.Println("参数：")
@@ -62,6 +61,16 @@ func main() {
 			fmt.Println("cfiptest asn 用于根据asn获取ip段")
 			fmt.Println("例子：cfiptest asn -as 13335")
 			asnCmd.PrintDefaults()
+
+		}
+		flag.Parse()
+		if printVersion {
+			println(version)
+			os.Exit(0)
+		}
+
+		if isShowHelp {
+			flag.Usage()
 			os.Exit(0)
 		}
 		st.Run()
