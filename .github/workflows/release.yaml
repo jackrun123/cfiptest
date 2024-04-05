@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows, darwin, android] # 需要打包的系统
+        goos: [linux, windows, darwin] # 需要打包的系统
         goarch: [amd64, arm64, arm, mips, mips64, mips64le, mipsle] # 需要打包的架构
         exclude: # 排除某些平台和架构
           - goarch: arm64
