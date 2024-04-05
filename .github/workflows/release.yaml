@@ -13,11 +13,44 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows, darwin] # 需要打包的系统
-        goarch: [amd64, arm64] # 需要打包的架构
+        goos: [linux, windows, darwin, android] # 需要打包的系统
+        goarch: [amd64, arm64, arm, mips, mips64, mips64le, mipsle] # 需要打包的架构
         exclude: # 排除某些平台和架构
           - goarch: arm64
             goos: windows
+          - goarch: arm
+            goos: windows
+          - goarch: arm
+            goos: linux
+
+          # windows、darwin、android 排除 mips, mips64, mips64le, mipsle
+          - goarch: mips
+            goos: windows
+          - goarch: mips64
+            goos: windows
+          - goarch: mips64le
+            goos: windows
+          - goarch: mipsle
+            goos: windows
+
+          - goarch: mips
+            goos: darwin
+          - goarch: mips64
+            goos: darwin
+          - goarch: mips64le
+            goos: darwin
+          - goarch: mipsle
+            goos: darwin
+
+          - goarch: mips
+            goos: android
+          - goarch: mips64
+            goos: android
+          - goarch: mips64le
+            goos: android
+          - goarch: mipsle
+            goos: android
+
     steps:
       - uses: actions/checkout@v3
       - uses: wangyoucao577/go-release-action@v1
