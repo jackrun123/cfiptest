@@ -42,7 +42,7 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 			}()
 
 			// 如果满足延迟测试条数，则跳过
-			if okCount.Load() >= int64(st.MaxDelayCount) {
+			if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
 				return
 			}
 

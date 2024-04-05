@@ -30,7 +30,7 @@ func init() {
 	flag.StringVar(&st.SpeedTestURL, "url", "speed.cloudflare.com/__down?bytes=100000000", "测速文件地址")
 	flag.StringVar(&st.DelayTestURL, "delay_url", "www.visa.com.hk/cdn-cgi/trace", "延迟测试地址，要求是使用cloudflare的地址")
 	flag.IntVar(&st.MaxSpeedTestCount, "maxsc", 10, "速度测试，最多测试多少个IP")
-	flag.IntVar(&st.MaxDelayCount, "maxdc", 1000, "延迟测试，最多测试多少个IP")
+	flag.IntVar(&st.MaxDelayCount, "maxdc", 0, "延迟测试，最多测试多少个IP，如果不限制则设置为0")
 	flag.Float64Var(&st.MinSpeed, "mins", 1, "最低速度")
 	flag.BoolVar(&st.EnableTLS, "tls", true, "是否启用TLS")
 	flag.BoolVar(&st.Shuffle, "s", false, "是否打乱顺序测速")
