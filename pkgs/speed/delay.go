@@ -16,7 +16,6 @@ import (
 
 func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) chan Result {
 	var wg sync.WaitGroup
-	wg.Add(len(ips))
 
 	resultChan := make(chan Result, len(ips))
 
@@ -27,24 +26,26 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 	total := len(ips)
 
 	for _, ip := range ips {
+		// 如果满足延迟测试条数，则跳过
+		if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
+			break
+		}
+		wg.Add(1)
 		thread <- struct{}{}
 		go func(ipPair IpPair) {
 			defer func() {
 				<-thread
 				count.Add(1)
 				percentage := float64(count.Load()) / float64(total) * 100
+
+				fmt.Printf("已完成: %d/%d(%.2f%%)，有效个数：%d", count.Load(), total, percentage, okCount.Load())
 				if count.Load() == int64(total) {
-					fmt.Printf("已完成: %d 总数: %d 已完成: %.2f%%\n", count.Load(), total, percentage)
+					fmt.Printf("\n")
 				} else {
-					fmt.Printf("已完成: %d 总数: %d 已完成: %.2f%%\r", count.Load(), total, percentage)
+					fmt.Printf("\r")
 				}
 				wg.Done()
 			}()
-
-			// 如果满足延迟测试条数，则跳过
-			if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
-				return
-			}
 
 			dialer := &net.Dialer{
 				Timeout:   timeout,
@@ -53,7 +54,9 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 			start := time.Now()
 			conn, err := dialer.Dial("tcp", net.JoinHostPort(ipPair.ip, strconv.Itoa(ipPair.port)))
 			if err != nil {
-				//fmt.Printf("%s err: %s\n", ipPair.String(), err)
+				if st.VerboseMode {
+					fmt.Printf("connect failed, ip: %s err: %s\n", ipPair.String(), err)
+				}
 				return
 			}
 			defer conn.Close()
@@ -87,7 +90,9 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 			defer cancel()
 			resp, err := client.Do(req.WithContext(ctx))
 			if err != nil {
-				// fmt.Printf("%s err: %s\n", ipPair.String(), err)
+				if st.VerboseMode {
+					fmt.Printf("http request failed, ip: %s err: %s\n", ipPair.String(), err)
+				}
 				return
 			}
 			defer resp.Body.Close()
@@ -120,5 +125,8 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 
 	wg.Wait()
 	close(resultChan)
+	if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
+		fmt.Printf("已满足最大延迟测试个数，跳过剩下延迟测试，符合个数：%d\n", okCount.Load())
+	}
 	return resultChan
 }

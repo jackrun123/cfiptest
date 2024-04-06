@@ -47,7 +47,7 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 					}
 
 					currentOKCount := okCount.Load()
-					percentage := float64(currentOKCount) / float64(total) * 100
+					percentage := float64(count.Load()) / float64(total) * 100
 					if currentOKCount >= int64(total) || currentOKCount >= int64(st.MaxSpeedTestCount) {
 						fmt.Printf("已完成: %d/%d(%.2f%%)，符合条件：%d \u001B[0\n", count.Load(), total, percentage, okCount.Load())
 						break

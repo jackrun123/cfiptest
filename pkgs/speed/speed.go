@@ -65,6 +65,7 @@ type CFSpeedTest struct {
 	MinSpeed          float64
 	EnableTLS         bool
 	Shuffle           bool
+	VerboseMode       bool
 }
 
 func (st *CFSpeedTest) Run() {

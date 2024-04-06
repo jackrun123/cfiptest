@@ -45,6 +45,8 @@ cfiptest asn 用于根据asn获取ip段
 ```
 
 # 运行
+默认测速地址可能不能正常访问，可以参考[这个视频](https://www.youtube.com/watch?v=S4AZkvgnmmA)自己搭建一个
+
 准备一个ip.txt文件，内容格式为IP[,端口]，其中端口可以省略，如果省略则使用命令行的默认端口
 
 ip.txt例子
@@ -57,9 +59,16 @@ ip.txt例子
 
 在终端中运行以下命令来启动程序：
 ```
-./cfiptest -f=ip.txt -mins 5
+./cfiptest -f=ip.txt -mins 5 -url speed.cloudflare.com/__down?bytes=100000000
 ```
 请替换参数值以符合您的实际需求。
+
+# 使用建议
+可以先使用`masscan`扫描开放的端口，再使用这个工具二次扫描
+```shell
+sudo masscan -iL ./ipv6.txt -p 2083 --rate 10000 -oL o.txt
+cat o.txt|grep open|awk '{print $4","$3}' > ip.txt
+```
 
 # 输出说明
 程序将输出每个成功测试的 IP 地址的信息，包括 IP 地址、端口、数据中心、地区、城市、网络延迟和下载速度（如果选择测速）。
