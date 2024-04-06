@@ -2,6 +2,7 @@ package speed
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -66,6 +67,7 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 
 			client := http.Client{
 				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 跳过证书验证
 					Dial: func(network, addr string) (net.Conn, error) {
 						return conn, nil
 					},

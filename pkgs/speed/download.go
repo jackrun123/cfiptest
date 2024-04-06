@@ -1,12 +1,14 @@
 package speed
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,15 +35,15 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 				}()
 				for res := range resultChan {
 					count.Add(1)
-					downloadSpeed := st.getDownloadSpeed(res.ip, res.port)
+					downloadSpeed, err := st.getDownloadSpeed(res.ip, res.port)
 					mu.Lock()
 					if st.MinSpeed <= 0 || downloadSpeed > st.MinSpeed {
 						okCount.Add(1)
 						results = append(results, SpeedTestResult{Result: res, downloadSpeed: downloadSpeed})
 					}
 					prefix := fmt.Sprintf("[%d/%d] IP %s ", count.Load(), total, net.JoinHostPort(res.ip, strconv.Itoa(res.port)))
-					if downloadSpeed == -1 {
-						fmt.Printf("%s测速无效\n", prefix)
+					if err != nil {
+						fmt.Printf("%s测速无效, err: %s\n", prefix, err)
 					} else {
 						fmt.Printf("%s下载速度 %.2f MB/s, 延迟 %s ms\n", prefix, downloadSpeed, res.latency)
 					}
@@ -78,14 +80,19 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 }
 
 // 测速函数
-func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) float64 {
+func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 	var protocol string
 	if st.EnableTLS {
 		protocol = "https://"
 	} else {
 		protocol = "http://"
 	}
-	speedTestURL := protocol + st.SpeedTestURL
+
+	speedTestURL := st.SpeedTestURL
+	if !strings.HasPrefix(st.SpeedTestURL, "http://") && !strings.HasPrefix(st.SpeedTestURL, "https://") {
+		speedTestURL = protocol + st.SpeedTestURL
+	}
+
 	// 创建请求
 	req, _ := http.NewRequest("GET", speedTestURL, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0")
@@ -97,7 +104,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) float64 {
 	}
 	conn, err := dialer.Dial("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
-		return -1
+		return -1, err
 	}
 	defer conn.Close()
 
@@ -105,6 +112,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) float64 {
 	// 创建HTTP客户端
 	client := http.Client{
 		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 跳过证书验证
 			Dial: func(network, addr string) (net.Conn, error) {
 				return conn, nil
 			},
@@ -116,7 +124,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) float64 {
 	req.Close = true
 	resp, err := client.Do(req)
 	if err != nil {
-		return -1
+		return -1, err
 	}
 	defer resp.Body.Close()
 
@@ -125,5 +133,5 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) float64 {
 	duration := time.Since(startTime)
 	speed := float64(written) / duration.Seconds() / 1024 / 1024
 
-	return speed
+	return speed, nil
 }
