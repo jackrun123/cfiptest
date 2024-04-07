@@ -75,6 +75,22 @@ cat o.txt|grep open|awk '{print $4","$3}' > ip.txt
 
 程序还会将所有结果写入一个 CSV 文件中。
 
+# 如何选择文件
+| 系统      | 架构        | 32/64位 | 文件选择                  | 备注      |
+|---------|-----------|--------|-----------------------|---------|
+| MacOS   | Intel     | 64     | darwin-amd64.tar.gz   | 苹果      |
+| MacOS   | ARM       | 64     | darwin-arm64.tar.gz   | 苹果      |
+| Windows | Intel/AMD | 32     | windows-386.zip       | 微软      |
+| Windows | Intel/AMD | 64     | windows-amd64.zip     | 微软      |
+| Linux   | ARM       | 32     | linux-arm.tar.gz      | 安卓32位机器 |
+| Linux   | ARM       | 64     | linux-arm64.tar.gz    | 安卓64位机器 |
+| Linux   | Intel/AMD | 32     | linux-386.tar.gz      |         |
+| Linux   | Intel/AMD | 64     | linux-amd64.tar.gz    |         |
+| Linux   | Mips      | 32     | linux-mips.tar.gz     | 路由器     |
+| Linux   | Mips      | 64     | linux-mips64.tar.gz   | 路由器     |
+| Linux   | Mipsle    | 32     | linux-mipsle.tar.gz   | 路由器     |
+| Linux   | Mipsle    | 64     | linux-mips64le.tar.gz | 路由器     |
+
 # 许可证
 The MIT License (MIT)
 
