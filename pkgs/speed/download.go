@@ -3,7 +3,6 @@ package speed
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"sort"
@@ -128,8 +127,45 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 	}
 	defer resp.Body.Close()
 
+	stop := make(chan bool)
+	var written int64 = 0
+
+	if st.SpeedTestTimeout > 2 {
+		// 中途检测下载速度
+		go func() {
+			ticker := time.NewTicker(1500 * time.Millisecond) // 1.5秒后快速检测一次
+			defer ticker.Stop()
+			select {
+			case <-ticker.C:
+				elapsed := time.Since(startTime).Seconds()
+				speed := float64(written) / elapsed / 1024 / 1024
+				if speed < 0.7*float64(st.MinSpeed) {
+					stop <- true
+				}
+			}
+		}()
+	}
+
 	// 复制响应体到/dev/null，并计算下载速度
-	written, _ := io.Copy(io.Discard, resp.Body)
+	buf := make([]byte, 8024)
+
+outerLoop:
+	for {
+		select {
+		case <-stop:
+			break outerLoop
+		default:
+			n, err := resp.Body.Read(buf)
+			if n > 0 {
+				written += int64(n)
+			}
+			if err != nil {
+				break outerLoop
+			}
+		}
+	}
+
+	//written, _ := io.Copy(io.Discard, resp.Body)
 	duration := time.Since(startTime)
 	speed := float64(written) / duration.Seconds() / 1024 / 1024
 
