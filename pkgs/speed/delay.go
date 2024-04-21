@@ -118,10 +118,10 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 						fmt.Printf("发现有效IP %s 位置信息未知 延迟 %d 毫秒\n", ipPair.String(), tcpDuration.Milliseconds())
 						resultChan <- Result{ipPair.ip, ipPair.port, dataCenter, "", "", fmt.Sprintf("%d", tcpDuration.Milliseconds()), tcpDuration}
 					}
+					okCount.Add(1)
 				}
 			}
 
-			okCount.Add(1)
 		}(ip)
 	}
 
