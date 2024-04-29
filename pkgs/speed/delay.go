@@ -99,7 +99,7 @@ func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Locat
 	} else {
 		protocol = "http://"
 	}
-	requestURL := protocol + st.DelayTestURL
+	requestURL := fmt.Sprintf("%s%s/cdn-cgi/trace", protocol, st.DelayTestURL)
 
 	req, _ := http.NewRequest("GET", requestURL, nil)
 
@@ -127,6 +127,13 @@ func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Locat
 
 	if strings.Contains(string(body), "uag=Mozilla/5.0") {
 		if matches := regexp.MustCompile(`colo=([A-Z]+)`).FindStringSubmatch(string(body)); len(matches) > 1 {
+			if st.TestWebSocket {
+				ok, err := st.TestWebSocketDelay(ipPair)
+				if !ok {
+					return nil, err
+				}
+			}
+
 			dataCenter := matches[1]
 			loc, ok := locationMap[dataCenter]
 			if ok {
@@ -139,4 +146,54 @@ func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Locat
 		}
 	}
 	return nil, fmt.Errorf("not match")
+}
+
+func (st *CFSpeedTest) TestWebSocketDelay(ipPair IpPair) (bool, error) {
+	dialer := &net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: 0,
+	}
+	conn, err := dialer.Dial("tcp", net.JoinHostPort(ipPair.ip, strconv.Itoa(ipPair.port)))
+	if err != nil {
+		if st.VerboseMode {
+			fmt.Printf("connect failed, ip: %s err: %s\n", ipPair.String(), err)
+		}
+		return false, err
+	}
+	defer conn.Close()
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 跳过证书验证
+			Dial: func(network, addr string) (net.Conn, error) {
+				return conn, nil
+			},
+		},
+		Timeout: timeout,
+	}
+
+	var protocol string
+	if st.EnableTLS {
+		protocol = "https://"
+	} else {
+		protocol = "http://"
+	}
+	requestURL := fmt.Sprintf("%s%s/ws", protocol, st.DelayTestURL)
+
+	req, _ := http.NewRequest("GET", requestURL, nil)
+
+	// 添加用户代理
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Sec-WebSocket-Version", "13")
+	req.Header.Set("Sec-WebSocket-Key", "B5ReGbZ38Rrogrznmh1TFQ==")
+	req.Close = true
+	ctx, cancel := context.WithTimeout(context.Background(), maxDuration)
+	defer cancel()
+	resp, err := client.Do(req.WithContext(ctx))
+	result := false
+	if err == nil && resp != nil && resp.StatusCode == 101 {
+		result = true
+	}
+	return result, fmt.Errorf("websocket: %s", err)
 }

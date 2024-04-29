@@ -11,10 +11,11 @@ func TestCFSpeedTest_TestDelayOnce(t *testing.T) {
 		EnableTLS:        true,
 		SpeedTestTimeout: 5,
 		MinSpeed:         4,
-		DelayTestURL:     "www.visa.com.hk/cdn-cgi/trace",
+		DelayTestURL:     "www.visa.com.hk",
+		TestWebSocket:    true,
 	}
 
 	locationMap := st.GetLocationMap()
-	result, err := st.TestDelayOnce(IpPair{ip: "216.116.134.221", port: 2053}, locationMap)
+	result, err := st.TestDelayOnce(IpPair{ip: "8.212.26.41", port: 443}, locationMap)
 	fmt.Println(result, err)
 }

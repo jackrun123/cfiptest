@@ -3,21 +3,51 @@
 
 Cloudflare IP 测速器是一个使用 Golang 编写的小工具，用于测试一些 Cloudflare 的 IP 地址的延迟和下载速度，并将结果输出到 CSV 文件中。
 
+# 运行
+默认测速地址不能正常访问，请使用仓库中的_worker.js在cloudflare的worker或者page上部署，支持websocket和下载测速，可以参考[这个视频](https://www.youtube.com/watch?v=S4AZkvgnmmA)自己搭建一个
+
+准备一个ip.txt文件，内容格式为IP[,端口]，其中端口可以省略，如果省略则使用命令行的默认端口
+
+ip.txt例子
+```
+127.0.0.1,2053
+127.0.0.1/24,2053
+2400:cb00:2049:0:33f9:7045:cf64:7d93/120,2053
+127.0.0.2
+```
+
+在终端中运行以下命令来启动程序：
+```
+# example.com 是指你自己部署在cf的域名，这里只是例子
+./cfiptest -f=ip.txt -mins 5 -url example.com/50m -delay_url example.com
+```
+请替换参数值以符合您的实际需求。
+
+# 环境变量
+
+可选配置，如果配置了，优先以环境变量为准
+
+| 环境变量  | 备注       |
+|-------|----------|
+| CFIPTEST_DELAY_TEST_URL | 指定延迟测试地址 |
+| CFIPTEST_SPEED_TEST_URL | 指定速度测试地址 |
+
 # 参数说明
 可以使用 cfiptest -h 获取使用说明
 ```
 cfiptest -h
+使用方法：
 例子：cfiptest -f ./ip.txt -url speed.cloudflare.com/__down?bytes=100000000
 参数：
   -delay_url string
-        延迟测试地址，要求是使用cloudflare的地址 (default "www.visa.com.hk/cdn-cgi/trace")
+        延迟测试地址，要求是使用cloudflare的地址，只用填域名 (default "www.visa.com.hk")
   -dt int
         并发请求最大协程数 (default 100)
   -f string
         IP地址文件名称，格式1.0.0.127,443 (default "ip.txt")
   -h    帮助
   -maxdc int
-        延迟测试，最多测试多少个IP (default 1000)
+        延迟测试，最多测试多少个IP，如果不限制则设置为0
   -maxsc int
         速度测试，最多测试多少个IP (default 10)
   -mins float
@@ -36,32 +66,15 @@ cfiptest -h
   -url string
         测速文件地址 (default "speed.cloudflare.com/__down?bytes=100000000")
   -v    打印程序版本
+  -vv
+        详细日志模式，打印出错信息
+  -w    是否验证websocket，如果要验证，delay_url需要支持websocket，客户端会请求xx.com/ws地址
 
 cfiptest asn 用于根据asn获取ip段
 例子：cfiptest asn -as 13335
   -as string
         ASN号码，例如13335
-
 ```
-
-# 运行
-默认测速地址可能不能正常访问，可以参考[这个视频](https://www.youtube.com/watch?v=S4AZkvgnmmA)自己搭建一个
-
-准备一个ip.txt文件，内容格式为IP[,端口]，其中端口可以省略，如果省略则使用命令行的默认端口
-
-ip.txt例子
-```
-127.0.0.1,2053
-127.0.0.1/24,2053
-2400:cb00:2049:0:33f9:7045:cf64:7d93/120,2053
-127.0.0.2
-```
-
-在终端中运行以下命令来启动程序：
-```
-./cfiptest -f=ip.txt -mins 5 -url speed.cloudflare.com/__down?bytes=100000000
-```
-请替换参数值以符合您的实际需求。
 
 # 使用建议
 可以先使用`masscan`扫描开放的端口，再使用这个工具二次扫描

@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetDownloadSpeed(t *testing.T) {
 	st := &CFSpeedTest{
-		SpeedTestURL:     "speed.fatkun.cloudns.ch/100m",
+		SpeedTestURL:     "",
 		EnableTLS:        true,
 		SpeedTestTimeout: 5,
 		MinSpeed:         4,
