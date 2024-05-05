@@ -89,7 +89,7 @@ func (st *CFSpeedTest) PreSetArgs() {
 	st.SetFromEnv()
 
 	iatas := strings.Split(st.FilterIATA, ",")
-	if len(iatas) > 0 {
+	if len(iatas) > 0 && iatas[0] != "" {
 		st.FilterIATASet = make(map[string]*struct{})
 		for _, iata := range iatas {
 			st.FilterIATASet[iata] = &struct{}{}
