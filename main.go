@@ -34,6 +34,7 @@ func init() {
 	flag.Float64Var(&st.MinSpeed, "mins", 1, "最低速度")
 	flag.BoolVar(&st.EnableTLS, "tls", true, "是否启用TLS")
 	flag.BoolVar(&st.Shuffle, "s", false, "是否打乱顺序测速")
+	flag.StringVar(&st.FilterIATA, "iata", "", "使用IATA过滤，多个用英文逗号分隔，例如：HKG,SIN")
 	flag.BoolVar(&st.TestWebSocket, "w", false, "是否验证websocket，如果要验证，delay_url需要支持websocket，客户端会请求xx.com/ws地址")
 	flag.BoolVar(&st.VerboseMode, "vv", false, "详细日志模式，打印出错信息")
 	flag.BoolVar(&printVersion, "v", false, "打印程序版本")

@@ -50,8 +50,14 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 
 			result, _ := st.TestDelayOnce(ipPair, locationMap)
 			if result != nil {
-				resultChan <- *result
-				okCount.Add(1)
+				filterStr := ""
+				if st.FilterIATASet != nil && st.FilterIATASet[result.dataCenter] == nil {
+					filterStr = "，但被过滤"
+				} else {
+					resultChan <- *result
+					okCount.Add(1)
+				}
+				fmt.Printf("发现有效IP %s 位置信息 %s 延迟 %d 毫秒%s\n", ipPair.String(), result.city, result.tcpDuration.Milliseconds(), filterStr)
 			}
 
 		}(ip)
@@ -137,10 +143,8 @@ func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Locat
 			dataCenter := matches[1]
 			loc, ok := locationMap[dataCenter]
 			if ok {
-				fmt.Printf("发现有效IP %s 位置信息 %s 延迟 %d 毫秒\n", ipPair.String(), loc.City, tcpDuration.Milliseconds())
 				return &Result{ipPair.ip, ipPair.port, dataCenter, loc.Region, loc.City, fmt.Sprintf("%d", tcpDuration.Milliseconds()), tcpDuration}, nil
 			} else {
-				fmt.Printf("发现有效IP %s 位置信息未知 延迟 %d 毫秒\n", ipPair.String(), tcpDuration.Milliseconds())
 				return &Result{ipPair.ip, ipPair.port, dataCenter, "", "", fmt.Sprintf("%d", tcpDuration.Milliseconds()), tcpDuration}, nil
 			}
 		}

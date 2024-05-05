@@ -67,6 +67,8 @@ type CFSpeedTest struct {
 	EnableTLS         bool
 	Shuffle           bool
 	VerboseMode       bool
+	FilterIATA        string
+	FilterIATASet     map[string]*struct{}
 }
 
 func (st *CFSpeedTest) SetFromEnv() {
@@ -83,8 +85,21 @@ func (st *CFSpeedTest) SetFromEnv() {
 	}
 }
 
-func (st *CFSpeedTest) Run() {
+func (st *CFSpeedTest) PreSetArgs() {
 	st.SetFromEnv()
+
+	iatas := strings.Split(st.FilterIATA, ",")
+	if len(iatas) > 0 {
+		st.FilterIATASet = make(map[string]*struct{})
+		for _, iata := range iatas {
+			st.FilterIATASet[iata] = &struct{}{}
+		}
+	}
+
+}
+
+func (st *CFSpeedTest) Run() {
+	st.PreSetArgs()
 
 	startTime := time.Now()
 	locationMap := st.GetLocationMap()
