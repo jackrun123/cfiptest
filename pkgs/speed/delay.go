@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"regexp"
@@ -14,6 +13,22 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+type DelayResult struct {
+	duration time.Duration
+	body     string
+}
+
+func (st *CFSpeedTest) GetDelayTestURL() string {
+	var protocol string
+	if st.EnableTLS {
+		protocol = "https://"
+	} else {
+		protocol = "http://"
+	}
+	requestURL := fmt.Sprintf("%s%s/cdn-cgi/trace", protocol, st.DelayTestURL)
+	return requestURL
+}
 
 func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) chan Result {
 	var wg sync.WaitGroup
@@ -48,7 +63,7 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 				wg.Done()
 			}()
 
-			result, _ := st.TestDelayOnce(ipPair, locationMap)
+			result, err := st.TestDelayOnce(ipPair, locationMap)
 			if result != nil {
 				filterStr := ""
 				if st.FilterIATASet != nil && st.FilterIATASet[result.dataCenter] == nil {
@@ -58,6 +73,9 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 					okCount.Add(1)
 				}
 				fmt.Printf("发现有效IP %s 位置信息 %s 延迟 %d 毫秒%s\n", ipPair.String(), result.city, result.tcpDuration.Milliseconds(), filterStr)
+			}
+			if err != nil && st.VerboseMode {
+				fmt.Printf("IP %s 错误, err: %s \n", ipPair.String(), err)
 			}
 
 		}(ip)
@@ -72,67 +90,14 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 }
 
 func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Location) (*Result, error) {
-	dialer := &net.Dialer{
-		Timeout:   timeout,
-		KeepAlive: 0,
-	}
-	start := time.Now()
-	conn, err := dialer.Dial("tcp", net.JoinHostPort(ipPair.ip, strconv.Itoa(ipPair.port)))
-	if err != nil {
-		if st.VerboseMode {
-			fmt.Printf("connect failed, ip: %s err: %s\n", ipPair.String(), err)
-		}
-		return nil, err
-	}
-	defer conn.Close()
-
-	tcpDuration := time.Since(start)
-	start = time.Now()
-
-	client := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 跳过证书验证
-			Dial: func(network, addr string) (net.Conn, error) {
-				return conn, nil
-			},
-		},
-		Timeout: timeout,
-	}
-
-	var protocol string
-	if st.EnableTLS {
-		protocol = "https://"
-	} else {
-		protocol = "http://"
-	}
-	requestURL := fmt.Sprintf("%s%s/cdn-cgi/trace", protocol, st.DelayTestURL)
-
-	req, _ := http.NewRequest("GET", requestURL, nil)
-
-	// 添加用户代理
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-	req.Close = true
-	ctx, cancel := context.WithTimeout(context.Background(), maxDuration)
-	defer cancel()
-	resp, err := client.Do(req.WithContext(ctx))
-	if err != nil {
-		if st.VerboseMode {
-			fmt.Printf("http request failed, ip: %s err: %s\n", ipPair.String(), err)
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
-	duration := time.Since(start)
-	if duration > maxDuration {
-		return nil, fmt.Errorf("timeout")
-	}
-	body, err := io.ReadAll(resp.Body)
+	delayResult, err := st.TestDelayUseH1(ipPair)
 	if err != nil {
 		return nil, err
 	}
+	tcpDuration := delayResult.duration
 
-	if strings.Contains(string(body), "uag=Mozilla/5.0") {
-		if matches := regexp.MustCompile(`colo=([A-Z]+)`).FindStringSubmatch(string(body)); len(matches) > 1 {
+	if strings.Contains(delayResult.body, "uag=Mozilla/5.0") {
+		if matches := regexp.MustCompile(`colo=([A-Z]+)`).FindStringSubmatch(delayResult.body); len(matches) > 1 {
 			if st.TestWebSocket {
 				ok, err := st.TestWebSocketDelay(ipPair)
 				if !ok {

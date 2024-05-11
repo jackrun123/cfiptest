@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	timeout     = 1 * time.Second // 超时时间
-	maxDuration = 2 * time.Second // 最大持续时间
+	timeout     = 2 * time.Second // 超时时间
+	maxDuration = 3 * time.Second // 最大持续时间
 )
 
 type IpPair struct {
