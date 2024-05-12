@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
-	var results []SpeedTestResult
+func (st *CFSpeedTest) TestDownload(resultChan chan Result) []*SpeedTestResult {
+	var results []*SpeedTestResult
 	if st.SpeedTestThread > 0 {
 		fmt.Printf("开始测速，待测速：%d\n", len(resultChan))
 		var wg2 sync.WaitGroup
@@ -23,7 +23,7 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 		okCount := atomic.Int64{}
 		mu := sync.Mutex{}
 		total := len(resultChan)
-		results = []SpeedTestResult{}
+		results = []*SpeedTestResult{}
 		thread := make(chan struct{}, st.MaxThread)
 		for i := 0; i < st.SpeedTestThread; i++ {
 			thread <- struct{}{}
@@ -34,11 +34,18 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 				}()
 				for res := range resultChan {
 					count.Add(1)
-					downloadSpeed, err := st.getDownloadSpeed(res.ip, res.port)
+					downloadSpeed, col, err := st.getDownloadSpeed(res.ip, res.port)
+					if res.dataCenter == "" && col != "" {
+						if loc, ok := st.LocationMap[col]; ok {
+							res.dataCenter = col
+							res.region = loc.Region
+							res.city = loc.City
+						}
+					}
 					mu.Lock()
 					if st.MinSpeed <= 0 || downloadSpeed > st.MinSpeed {
 						okCount.Add(1)
-						results = append(results, SpeedTestResult{Result: res, downloadSpeed: downloadSpeed})
+						results = append(results, &SpeedTestResult{Result: res, downloadSpeed: downloadSpeed})
 					}
 					prefix := fmt.Sprintf("[%d/%d] IP %s ", count.Load(), total, net.JoinHostPort(res.ip, strconv.Itoa(res.port)))
 					if err != nil {
@@ -50,7 +57,7 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 					currentOKCount := okCount.Load()
 					percentage := float64(count.Load()) / float64(total) * 100
 					if currentOKCount >= int64(total) || currentOKCount >= int64(st.MaxSpeedTestCount) {
-						fmt.Printf("已完成: %d/%d(%.2f%%)，符合条件：%d \u001B[0\n", count.Load(), total, percentage, okCount.Load())
+						fmt.Printf("已完成: %d/%d(%.2f%%)，符合条件：%d\n", count.Load(), total, percentage, okCount.Load())
 						break
 					} else {
 						fmt.Printf("已完成: %d/%d(%.2f%%)，符合条件：%d\r", count.Load(), total, percentage, okCount.Load())
@@ -62,7 +69,7 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 		wg2.Wait()
 	} else {
 		for res := range resultChan {
-			results = append(results, SpeedTestResult{Result: res})
+			results = append(results, &SpeedTestResult{Result: res})
 		}
 	}
 
@@ -79,7 +86,7 @@ func (st *CFSpeedTest) TestDownload(resultChan chan Result) []SpeedTestResult {
 }
 
 // 测速函数
-func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
+func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, string, error) {
 	var protocol string
 	if st.EnableTLS {
 		protocol = "https://"
@@ -94,7 +101,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 
 	// 创建请求
 	req, _ := http.NewRequest("GET", speedTestURL, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("User-Agent", UA)
 
 	// 创建TCP连接
 	dialer := &net.Dialer{
@@ -103,7 +110,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 	}
 	conn, err := dialer.Dial("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	defer conn.Close()
 
@@ -123,9 +130,11 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 	req.Close = true
 	resp, err := client.Do(req)
 	if err != nil {
-		return -1, err
+		return -1, "", err
 	}
 	defer resp.Body.Close()
+
+	col := resp.Header.Get("Cf-Meta-Colo")
 
 	stop := make(chan bool)
 	var written int64 = 0
@@ -133,7 +142,7 @@ func (st *CFSpeedTest) getDownloadSpeed(ip string, port int) (float64, error) {
 	if st.SpeedTestTimeout > 2 {
 		// 中途检测下载速度
 		go func() {
-			ticker := time.NewTicker(1500 * time.Millisecond) // 1.5秒后快速检测一次
+			ticker := time.NewTicker(2000 * time.Millisecond) // 2秒后快速检测一次
 			defer ticker.Stop()
 			select {
 			case <-ticker.C:
@@ -169,5 +178,5 @@ outerLoop:
 	duration := time.Since(startTime)
 	speed := float64(written) / duration.Seconds() / 1024 / 1024
 
-	return speed, nil
+	return speed, col, nil
 }

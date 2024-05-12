@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	timeout     = 2 * time.Second // 超时时间
-	maxDuration = 3 * time.Second // 最大持续时间
+	timeout     = 1500 * time.Millisecond // 超时时间
+	maxDuration = 3000 * time.Millisecond // 最大持续时间
+	UA          = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 )
 
 type IpPair struct {
@@ -52,6 +53,7 @@ type Location struct {
 }
 
 type CFSpeedTest struct {
+	LocationMap       map[string]Location
 	SpeedTestTimeout  int
 	IpFile            string
 	OutFile           string
@@ -69,6 +71,7 @@ type CFSpeedTest struct {
 	VerboseMode       bool
 	FilterIATA        string
 	FilterIATASet     map[string]*struct{}
+	DelayTestType     int
 }
 
 func (st *CFSpeedTest) SetFromEnv() {
@@ -87,6 +90,7 @@ func (st *CFSpeedTest) SetFromEnv() {
 
 func (st *CFSpeedTest) PreSetArgs() {
 	st.SetFromEnv()
+	st.LocationMap = st.GetLocationMap()
 
 	iatas := strings.Split(st.FilterIATA, ",")
 	if len(iatas) > 0 && iatas[0] != "" {
@@ -102,8 +106,7 @@ func (st *CFSpeedTest) Run() {
 	st.PreSetArgs()
 
 	startTime := time.Now()
-	locationMap := st.GetLocationMap()
-	if locationMap == nil {
+	if st.LocationMap == nil {
 		return
 	}
 
@@ -118,7 +121,7 @@ func (st *CFSpeedTest) Run() {
 		rand.Shuffle(len(ips), func(i, j int) { ips[i], ips[j] = ips[j], ips[i] })
 	}
 
-	resultChan := st.TestDelay(ips, locationMap)
+	resultChan := st.TestDelay(ips)
 	if len(resultChan) == 0 {
 		// 清除输出内容
 		fmt.Print("\033[2J")
@@ -188,7 +191,7 @@ func (st *CFSpeedTest) readIPs(File string) ([]IpPair, error) {
 	return ips, scanner.Err()
 }
 
-func (st *CFSpeedTest) Output(results []SpeedTestResult) {
+func (st *CFSpeedTest) Output(results []*SpeedTestResult) {
 	file, err := os.Create(st.OutFile)
 	if err != nil {
 		fmt.Printf("无法创建文件: %v\n", err)
@@ -196,6 +199,8 @@ func (st *CFSpeedTest) Output(results []SpeedTestResult) {
 	}
 	defer file.Close()
 
+	// 写入UTF-8 BOM，避免乱码
+	file.WriteString("\xEF\xBB\xBF")
 	writer := csv.NewWriter(file)
 	if st.SpeedTestThread > 0 {
 		writer.Write([]string{"IP地址", "端口", "TLS", "数据中心", "地区", "城市", "网络延迟(毫秒)", "下载速度(MB/s)"})

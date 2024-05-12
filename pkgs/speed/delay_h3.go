@@ -51,7 +51,7 @@ func (st *CFSpeedTest) TestDelayUseH3(ipPair IpPair) (*DelayResult, error) {
 	req, _ := http.NewRequest("GET", requestURL, nil)
 
 	// 添加用户代理
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+	req.Header.Set("User-Agent", UA)
 	req.Close = true
 	ctx2, cancel2 := context.WithTimeout(context.Background(), maxDuration)
 	defer cancel2()

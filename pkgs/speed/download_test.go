@@ -4,15 +4,16 @@ import "testing"
 
 func TestGetDownloadSpeed(t *testing.T) {
 	st := &CFSpeedTest{
-		SpeedTestURL:     "",
 		EnableTLS:        true,
 		SpeedTestTimeout: 5,
 		MinSpeed:         4,
 	}
-	ip := "8.222.168.24"
-	port := 2053
+	st.PreSetArgs()
 
-	speed, err := st.getDownloadSpeed(ip, port)
+	ip := "172.64.155.2"
+	port := 443
+
+	speed, _, err := st.getDownloadSpeed(ip, port)
 
 	if err != nil {
 		t.Errorf("getDownloadSpeed(%s, %d) returned an error: %v", ip, port, err)

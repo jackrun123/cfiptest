@@ -30,7 +30,7 @@ func (st *CFSpeedTest) GetDelayTestURL() string {
 	return requestURL
 }
 
-func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) chan Result {
+func (st *CFSpeedTest) TestDelay(ips []IpPair) chan Result {
 	var wg sync.WaitGroup
 
 	resultChan := make(chan Result, len(ips))
@@ -63,7 +63,16 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 				wg.Done()
 			}()
 
-			result, err := st.TestDelayOnce(ipPair, locationMap)
+			var result *Result
+			var err error
+			if st.DelayTestType == 1 {
+				result, err = st.TestTCP(ipPair)
+			} else if st.DelayTestType == 0 {
+				result, err = st.TestDelayOnce(ipPair)
+			} else {
+				return
+			}
+
 			if result != nil {
 				filterStr := ""
 				if st.FilterIATASet != nil && st.FilterIATASet[result.dataCenter] == nil {
@@ -84,12 +93,28 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair, locationMap map[string]Location) 
 	wg.Wait()
 	close(resultChan)
 	if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
-		fmt.Printf("已满足最大延迟测试个数，跳过剩下延迟测试，符合个数：%d\n", okCount.Load())
+		fmt.Printf("已满足最大延迟测试个数，跳过剩下延迟测试，符合个数：%d \n", okCount.Load())
 	}
 	return resultChan
 }
 
-func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Location) (*Result, error) {
+func (st *CFSpeedTest) TestTCP(ipPair IpPair) (*Result, error) {
+	dialer := &net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: 0,
+	}
+	start := time.Now()
+	conn, err := dialer.Dial("tcp", net.JoinHostPort(ipPair.ip, strconv.Itoa(ipPair.port)))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	tcpDuration := time.Since(start)
+	return &Result{ipPair.ip, ipPair.port, "", "", "", fmt.Sprintf("%d", tcpDuration.Milliseconds()), tcpDuration}, nil
+}
+
+func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair) (*Result, error) {
 	delayResult, err := st.TestDelayUseH1(ipPair)
 	if err != nil {
 		return nil, err
@@ -106,7 +131,7 @@ func (st *CFSpeedTest) TestDelayOnce(ipPair IpPair, locationMap map[string]Locat
 			}
 
 			dataCenter := matches[1]
-			loc, ok := locationMap[dataCenter]
+			loc, ok := st.LocationMap[dataCenter]
 			if ok {
 				return &Result{ipPair.ip, ipPair.port, dataCenter, loc.Region, loc.City, fmt.Sprintf("%d", tcpDuration.Milliseconds()), tcpDuration}, nil
 			} else {
