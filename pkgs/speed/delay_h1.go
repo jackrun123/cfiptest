@@ -1,6 +1,7 @@
 package speed
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -25,6 +26,7 @@ func (st *CFSpeedTest) TestDelayUseH1(ipPair IpPair) (*DelayResult, error) {
 		return nil, err
 	}
 	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(maxDuration))
 
 	tcpDuration := time.Since(start)
 	start = time.Now()
@@ -60,7 +62,7 @@ func (st *CFSpeedTest) TestDelayUseH1(ipPair IpPair) (*DelayResult, error) {
 		err := fmt.Errorf("timeout")
 		return nil, err
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := st.readWithTimeout(resp, maxDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -68,4 +70,24 @@ func (st *CFSpeedTest) TestDelayUseH1(ipPair IpPair) (*DelayResult, error) {
 		duration: tcpDuration,
 		body:     string(body),
 	}, nil
+}
+
+func (st *CFSpeedTest) readWithTimeout(resp *http.Response, tt time.Duration) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	timeout := time.After(tt)
+	// 使用一个 goroutine 来读取响应体，可能会残留gorutine？
+	done := make(chan error)
+	go func() {
+		_, err := io.Copy(buf, resp.Body)
+		done <- err
+	}()
+	// 等待读取操作完成或者超时
+	select {
+	case err := <-done:
+		return buf.Bytes(), err
+	case <-timeout:
+		// 读取操作超时
+		return nil, fmt.Errorf("read timeout")
+	}
+
 }
