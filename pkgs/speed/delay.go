@@ -30,6 +30,31 @@ func (st *CFSpeedTest) GetDelayTestURL() string {
 	return requestURL
 }
 
+func (st *CFSpeedTest) showPercentText(count *atomic.Int64, okCount *atomic.Int64, total *int) {
+	percentage := float64(count.Load()) / float64(*total) * 100
+	fmt.Printf("已完成: %d/%d(%.2f%%)，有效个数：%d", count.Load(), *total, percentage, okCount.Load())
+	if count.Load() == int64(*total) {
+		fmt.Printf("\n")
+	} else {
+		fmt.Printf("\r")
+	}
+}
+
+func (st *CFSpeedTest) showPercent(stop <-chan struct{}, count *atomic.Int64, okCount *atomic.Int64, total *int) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				st.showPercentText(count, okCount, total)
+			}
+		}
+	}()
+}
+
 func (st *CFSpeedTest) TestDelay(ips []IpPair) chan Result {
 	var wg sync.WaitGroup
 
@@ -40,27 +65,21 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair) chan Result {
 	count := atomic.Int64{}
 	okCount := atomic.Int64{}
 	total := len(ips)
-
+	stopShowPercent := make(chan struct{})
+	st.showPercent(stopShowPercent, &count, &okCount, &total)
 	for _, ip := range ips {
 		// 如果满足延迟测试条数，则跳过
 		if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
 			break
 		}
+
 		wg.Add(1)
 		thread <- struct{}{}
 		go func(ipPair IpPair) {
 			defer func() {
-				<-thread
-				count.Add(1)
-				percentage := float64(count.Load()) / float64(total) * 100
-
-				fmt.Printf("已完成: %d/%d(%.2f%%)，有效个数：%d", count.Load(), total, percentage, okCount.Load())
-				if count.Load() == int64(total) {
-					fmt.Printf("\n")
-				} else {
-					fmt.Printf("\r")
-				}
 				wg.Done()
+				count.Add(1)
+				<-thread
 			}()
 
 			var result *Result
@@ -91,7 +110,10 @@ func (st *CFSpeedTest) TestDelay(ips []IpPair) chan Result {
 	}
 
 	wg.Wait()
+	stopShowPercent <- struct{}{}
+	close(stopShowPercent)
 	close(resultChan)
+	st.showPercentText(&count, &okCount, &total)
 	if st.MaxDelayCount > 0 && okCount.Load() >= int64(st.MaxDelayCount) {
 		fmt.Printf("已满足最大延迟测试个数，跳过剩下延迟测试，符合个数：%d \n", okCount.Load())
 	}

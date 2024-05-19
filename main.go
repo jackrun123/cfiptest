@@ -6,6 +6,8 @@ import (
 	asn2 "github.com/jackrun123/cfiptest/pkgs/asn"
 	"github.com/jackrun123/cfiptest/pkgs/speed"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 )
@@ -17,6 +19,7 @@ var (
 	st           = speed.CFSpeedTest{}
 	asn          = asn2.ASN{}
 	asnCmd       *flag.FlagSet
+	debugAddress string
 )
 
 func init() {
@@ -40,6 +43,7 @@ func init() {
 	flag.BoolVar(&st.VerboseMode, "vv", false, "详细日志模式，打印出错信息")
 	flag.BoolVar(&printVersion, "v", false, "打印程序版本")
 	flag.BoolVar(&isShowHelp, "h", false, "帮助")
+	flag.StringVar(&debugAddress, "debug", "127.0.0.1:34561", "pprof调试监听地址")
 
 	asnCmd = flag.NewFlagSet("asn", flag.ExitOnError)
 	asnCmd.StringVar(&asn.AsCode, "as", "", "ASN号码，例如13335")
@@ -49,6 +53,13 @@ func main() {
 	cmd := ""
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
+	}
+
+	// 启动pprof服务
+	if debugAddress != "" {
+		go func() {
+			http.ListenAndServe(debugAddress, nil)
+		}()
 	}
 
 	switch cmd {
